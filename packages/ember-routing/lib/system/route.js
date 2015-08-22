@@ -2150,7 +2150,7 @@ function buildRenderOptions(route, namePassed, isDefaultRender, name, options) {
     let componentLookup = route.container.lookup('component-lookup:main');
     Component = componentLookup.lookupFactory(componentName);
     let isGlimmerComponent = Component && Component.proto().isGlimmerComponent;
-    if (!template && !ViewClass && Component && isGlimmerComponent) {
+    if (!ViewClass && Component && isGlimmerComponent) {
       renderOptions.Component = Component;
       renderOptions.ViewClass = undefined;
       renderOptions.attrs = { model: get(controller, 'model') };
