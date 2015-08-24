@@ -5,7 +5,7 @@
  *            Portions Copyright 2008-2011 Apple Inc. All rights reserved.
  * @license   Licensed under MIT license
  *            See https://raw.github.com/emberjs/ember.js/master/LICENSE
- * @version   2.2.0-canary+6fdbd096
+ * @version   2.2.0-canary+72652707
  */
 
 (function() {
@@ -1328,11 +1328,11 @@ enifed('ember-application/tests/system/application_instance_test', ['exports', '
     ok(appInstance.__container__, '#__container__ is accessible');
     ok(appInstance.__registry__, '#__registry__ is accessible');
 
-    expect(6);
+    expect(9);
 
     ok(typeof appInstance.container.lookup === 'function', '#container.lookup is available as a function');
 
-    // stub `lookup` with a no-op to keep deprecation test simple
+    // stub with a no-op to keep deprecation test simple
     appInstance.__container__.lookup = function () {
       ok(true, '#loookup alias is called correctly');
     };
@@ -1340,6 +1340,15 @@ enifed('ember-application/tests/system/application_instance_test', ['exports', '
     expectDeprecation(function () {
       appInstance.container.lookup();
     }, /Using `ApplicationInstance.container.lookup` is deprecated. Please use `ApplicationInstance.lookup` instead./);
+
+    ok(typeof appInstance.registry.register === 'function', '#registry.register is available as a function');
+    appInstance.__registry__.register = function () {
+      ok(true, '#register alias is called correctly');
+    };
+
+    expectDeprecation(function () {
+      appInstance.registry.register();
+    }, /Using `ApplicationInstance.registry.register` is deprecated. Please use `ApplicationInstance.register` instead./);
   });
 
   QUnit.test('customEvents added to the application before setupEventDispatcher', function (assert) {
@@ -1415,7 +1424,7 @@ enifed('ember-application/tests/system/application_instance_test.jshint', ['expo
     assert.ok(true, 'ember-application/tests/system/application_instance_test.js should pass jshint.');
   });
 });
-enifed('ember-application/tests/system/application_test', ['exports', 'ember-metal/core', 'ember-metal/run_loop', 'ember-application/system/application', 'ember-application/system/resolver', 'ember-routing/system/router', 'ember-views/views/view', 'ember-runtime/controllers/controller', 'ember-routing/location/none_location', 'ember-runtime/system/object', 'ember-routing/system/route', 'ember-views/system/jquery', 'ember-template-compiler/system/compile', 'ember-runtime/system/lazy_load'], function (exports, _emberMetalCore, _emberMetalRun_loop, _emberApplicationSystemApplication, _emberApplicationSystemResolver, _emberRoutingSystemRouter, _emberViewsViewsView, _emberRuntimeControllersController, _emberRoutingLocationNone_location, _emberRuntimeSystemObject, _emberRoutingSystemRoute, _emberViewsSystemJquery, _emberTemplateCompilerSystemCompile, _emberRuntimeSystemLazy_load) {
+enifed('ember-application/tests/system/application_test', ['exports', 'ember-metal/core', 'ember-metal/run_loop', 'ember-application/system/application', 'ember-application/system/resolver', 'ember-routing/system/router', 'ember-views/views/view', 'ember-runtime/controllers/controller', 'ember-routing/location/none_location', 'ember-runtime/system/object', 'ember-routing/system/route', 'ember-views/system/jquery', 'ember-template-compiler/system/compile', 'ember-runtime/system/lazy_load', 'ember-metal/features'], function (exports, _emberMetalCore, _emberMetalRun_loop, _emberApplicationSystemApplication, _emberApplicationSystemResolver, _emberRoutingSystemRouter, _emberViewsViewsView, _emberRuntimeControllersController, _emberRoutingLocationNone_location, _emberRuntimeSystemObject, _emberRoutingSystemRoute, _emberViewsSystemJquery, _emberTemplateCompilerSystemCompile, _emberRuntimeSystemLazy_load, _emberMetalFeatures) {
   /*globals EmberDev */
 
   'use strict';
@@ -1502,6 +1511,20 @@ enifed('ember-application/tests/system/application_test', ['exports', 'ember-met
     _emberMetalCore.default.BOOTED = false;
     app.Foo = _emberRuntimeSystemObject.default.extend();
     equal(app.Foo.toString(), 'TestApp.Foo', 'Classes pick up their parent namespace');
+  });
+
+  QUnit.test('includes deprecated access to `application.registry`', function () {
+    expect(3);
+
+    ok(typeof application.registry.register === 'function', '#registry.register is available as a function');
+
+    application.__registry__.register = function () {
+      ok(true, '#register alias is called correctly');
+    };
+
+    expectDeprecation(function () {
+      application.registry.register();
+    }, /Using `Application.registry.register` is deprecated. Please use `Application.register` instead./);
   });
 
   QUnit.module('Ember.Application initialization', {
@@ -4654,17 +4677,17 @@ enifed('ember-debug/warn.jshint', ['exports'], function (exports) {
     assert.ok(true, 'ember-debug/warn.js should pass jshint.');
   });
 });
-enifed("ember-dev/test-helper/assertion", ["exports", "./method-call-expectation", "./utils"], function (exports, _methodCallExpectation, _utils) {
+enifed('ember-dev/test-helper/assertion', ['exports', './method-call-expectation'], function (exports, _methodCallExpectation) {
   /* globals QUnit */
 
-  "use strict";
+  'use strict';
 
   function AssertExpectation(Ember, message) {
     _methodCallExpectation.default.call(this, Ember, 'assert');
     this.expectedMessage = message;
   }
   AssertExpectation.Error = function () {};
-  AssertExpectation.prototype = _utils.o_create(_methodCallExpectation.default.prototype);
+  AssertExpectation.prototype = Object.create(_methodCallExpectation.default.prototype);
   AssertExpectation.prototype.handleCall = function (message, test) {
     var noAssertion = typeof test === 'function' ? test() : test;
 
@@ -4775,11 +4798,12 @@ enifed('ember-dev/test-helper/deprecation', ['exports', './method-call-expectati
     },
 
     stubEmber: function () {
-      if (!this._previousEmberDeprecate && this._previousEmberDeprecate !== this.env.Ember.deprecate) {
-        this._previousEmberDeprecate = this.env.Ember.deprecate;
+      if (!this._previousEmberDeprecate) {
+        this._previousEmberDeprecate = this.env.getDebugFunction('deprecate');
       }
+
       var assertion = this;
-      this.env.Ember.deprecate = function (msg, test) {
+      this.env.setDebugFunction('deprecate', function (msg, test) {
         var resultOfTest = typeof test === 'function' ? test() : test;
         var shouldDeprecate = !resultOfTest;
 
@@ -4787,7 +4811,7 @@ enifed('ember-dev/test-helper/deprecation', ['exports', './method-call-expectati
         if (shouldDeprecate) {
           assertion.actuals.push([msg, resultOfTest]);
         }
-      };
+      });
     },
 
     inject: function () {
@@ -4926,7 +4950,7 @@ enifed('ember-dev/test-helper/deprecation', ['exports', './method-call-expectati
 
     restore: function () {
       if (this._previousEmberDeprecate) {
-        this.env.Ember.deprecate = this._previousEmberDeprecate;
+        this.env.setDebugFunction('deprecate', this._previousEmberDeprecate);
         this._previousEmberDeprecate = null;
       }
       window.expectNoDeprecation = null;
@@ -5142,16 +5166,12 @@ enifed('ember-dev/test-helper/utils', ['exports'], function (exports) {
     };
   }
 
-  function buildCompositeAssert(klasses) {
-    var Composite = function (emberKlass, runningProdBuild) {
-      this.asserts = [];
-      for (var i = 0, l = klasses.length; i < l; i++) {
-        this.asserts.push(new klasses[i]({
-          Ember: emberKlass,
-          runningProdBuild: runningProdBuild
-        }));
-      }
-    };
+  function buildCompositeAssert(assertClasses) {
+    function Composite(env) {
+      this.asserts = assertClasses.map(function (Assert) {
+        return new Assert(env);
+      });
+    }
 
     Composite.prototype = {
       reset: callForEach('asserts', 'reset'),
@@ -5162,21 +5182,6 @@ enifed('ember-dev/test-helper/utils', ['exports'], function (exports) {
 
     return Composite;
   }
-
-  var o_create = Object.create || (function () {
-    function F() {}
-
-    return function (o) {
-      if (arguments.length !== 1) {
-        throw new Error('Object.create implementation only accepts one parameter.');
-      }
-      F.prototype = o;
-      return new F();
-    };
-  })();
-
-  var o_create;
-  exports.o_create = o_create;
 });
 enifed('ember-extension-support.jscs-test', ['exports'], function (exports) {
   'use strict';
@@ -17012,13 +17017,15 @@ enifed('ember-htmlbars/tests/integration/component_invocation_test', ['exports',
   });
 
   QUnit.test('specifying classNames results in correct class', function (assert) {
-    expect(1);
+    expect(3);
 
+    var clickyThing = undefined;
     registry.register('component:some-clicky-thing', _emberViewsComponentsComponent.default.extend({
       tagName: 'button',
       classNames: ['foo', 'bar'],
-      click: function () {
-        assert.ok(true, 'click was fired!');
+      init: function () {
+        this._super.apply(this, arguments);
+        clickyThing = this;
       }
     }));
 
@@ -17031,6 +17038,12 @@ enifed('ember-htmlbars/tests/integration/component_invocation_test', ['exports',
 
     var button = view.$('button');
     ok(button.is('.foo.bar.baz.ember-view'), 'the element has the correct classes: ' + button.attr('class'));
+
+    var expectedClassNames = ['ember-view', 'foo', 'bar', 'baz'];
+    assert.deepEqual(clickyThing.get('classNames'), expectedClassNames, 'classNames are properly combined');
+
+    var buttonClassNames = button.attr('class');
+    assert.deepEqual(buttonClassNames.split(' '), expectedClassNames, 'all classes are set 1:1 in DOM');
   });
 
   QUnit.test('specifying custom concatenatedProperties avoids clobbering', function (assert) {
@@ -17856,7 +17869,7 @@ enifed('ember-htmlbars/tests/integration/component_lifecycle_test', ['exports', 
 
     QUnit.test('changing a component\'s displayed properties inside didInsertElement() is deprecated', function (assert) {
       var component = style.class.extend({
-        layout: _emberTemplateCompilerSystemCompile.default('<div>{{debugger}}{{handle}}</div>'),
+        layout: _emberTemplateCompilerSystemCompile.default('<div>{{handle}}</div>'),
         handle: '@wycats',
         container: container,
 
@@ -20046,22 +20059,6 @@ enifed('ember-metal/alias.jshint', ['exports'], function (exports) {
     assert.ok(true, 'ember-metal/alias.js should pass jshint.');
   });
 });
-enifed('ember-metal/assert.jscs-test', ['exports'], function (exports) {
-  'use strict';
-
-  module('JSCS - ember-metal');
-  test('ember-metal/assert.js should pass jscs', function () {
-    ok(true, 'ember-metal/assert.js should pass jscs.');
-  });
-});
-enifed('ember-metal/assert.jshint', ['exports'], function (exports) {
-  'use strict';
-
-  QUnit.module('JSHint - ember-metal');
-  QUnit.test('ember-metal/assert.js should pass jshint', function (assert) {
-    assert.ok(true, 'ember-metal/assert.js should pass jshint.');
-  });
-});
 enifed('ember-metal/assign.jscs-test', ['exports'], function (exports) {
   'use strict';
 
@@ -20172,6 +20169,22 @@ enifed('ember-metal/core.jshint', ['exports'], function (exports) {
   QUnit.module('JSHint - ember-metal');
   QUnit.test('ember-metal/core.js should pass jshint', function (assert) {
     assert.ok(true, 'ember-metal/core.js should pass jshint.');
+  });
+});
+enifed('ember-metal/debug.jscs-test', ['exports'], function (exports) {
+  'use strict';
+
+  module('JSCS - ember-metal');
+  test('ember-metal/debug.js should pass jscs', function () {
+    ok(true, 'ember-metal/debug.js should pass jscs.');
+  });
+});
+enifed('ember-metal/debug.jshint', ['exports'], function (exports) {
+  'use strict';
+
+  QUnit.module('JSHint - ember-metal');
+  QUnit.test('ember-metal/debug.js should pass jshint', function (assert) {
+    assert.ok(true, 'ember-metal/debug.js should pass jshint.');
   });
 });
 enifed('ember-metal/dependent_keys.jscs-test', ['exports'], function (exports) {
@@ -22128,6 +22141,28 @@ enifed('ember-metal/tests/computed_test', ['exports', 'ember-metal/core', 'ember
 
   QUnit.test('computed property should be an instance of descriptor', function () {
     ok(_emberMetalComputed.computed(function () {}) instanceof _emberMetalProperties.Descriptor);
+  });
+
+  QUnit.test('computed properties assert the presence of a getter or setter function', function () {
+    expectAssertion(function () {
+      _emberMetalComputed.computed('nogetternorsetter', {});
+    }, 'Computed properties must receive a getter or a setter, you passed none.');
+  });
+
+  QUnit.test('computed properties check for the presence of a function or configuration object', function () {
+    expectAssertion(function () {
+      _emberMetalComputed.computed('nolastargument');
+    }, 'Ember.computed expects a function or an object as last argument.');
+  });
+
+  QUnit.test('computed properties defined with an object only allow `get` and `set` keys', function () {
+    expectAssertion(function () {
+      _emberMetalComputed.computed({
+        get: function () {},
+        set: function () {},
+        other: function () {}
+      });
+    }, 'Config object pased to a Ember.computed can only contain `get` or `set` keys.');
   });
 
   QUnit.test('defining computed property should invoke property on get', function () {
@@ -26914,53 +26949,6 @@ enifed('ember-metal/tests/observer_test', ['exports', 'ember-metal/core', 'ember
     equal(count, 1, 'should have invoked observer');
   });
 
-  _emberMetalTestsProps_helper.testBoth('before observer watching multiple properties via brace expansion should fire when properties change', function (get, set) {
-    var obj = {};
-    var count = 0;
-
-    _emberMetalMixin.mixin(obj, {
-      fooAndBarWatcher: _emberMetalMixin._beforeObserver('{foo,bar}', function () {
-        count++;
-      })
-    });
-
-    set(obj, 'foo', 'foo');
-    equal(count, 1, 'observer specified via brace expansion invoked on property change');
-
-    set(obj, 'bar', 'bar');
-    equal(count, 2, 'observer specified via brace expansion invoked on property change');
-
-    set(obj, 'baz', 'baz');
-    equal(count, 2, 'observer not invoked on unspecified property');
-  });
-
-  _emberMetalTestsProps_helper.testBoth('before observer watching multiple properties via brace expansion should fire when dependent property changes', function (get, set) {
-    var obj = { baz: 'Initial' };
-    var count = 0;
-
-    _emberMetalProperties.defineProperty(obj, 'foo', _emberMetalComputed.computed(function () {
-      return get(this, 'bar').toLowerCase();
-    }).property('bar'));
-
-    _emberMetalProperties.defineProperty(obj, 'bar', _emberMetalComputed.computed(function () {
-      return get(this, 'baz').toUpperCase();
-    }).property('baz'));
-
-    _emberMetalMixin.mixin(obj, {
-      fooAndBarWatcher: _emberMetalMixin._beforeObserver('{foo,bar}', function () {
-        count++;
-      })
-    });
-
-    get(obj, 'foo');
-    set(obj, 'baz', 'Baz');
-    // fire once for foo, once for bar
-    equal(count, 2, 'observer specified via brace expansion invoked on dependent property change');
-
-    set(obj, 'quux', 'Quux');
-    equal(count, 2, 'observer not fired on unspecified property');
-  });
-
   _emberMetalTestsProps_helper.testBoth('_addBeforeObserver should propagate through prototype', function (get, set) {
     var obj = { foo: 'foo', count: 0 };
     var obj2;
@@ -29808,22 +29796,6 @@ enifed('ember-routing-htmlbars/keywords/element-action.jshint', ['exports'], fun
     assert.ok(true, 'ember-routing-htmlbars/keywords/element-action.js should pass jshint.');
   });
 });
-enifed('ember-routing-htmlbars/keywords/link-to.jscs-test', ['exports'], function (exports) {
-  'use strict';
-
-  module('JSCS - ember-routing-htmlbars/keywords');
-  test('ember-routing-htmlbars/keywords/link-to.js should pass jscs', function () {
-    ok(true, 'ember-routing-htmlbars/keywords/link-to.js should pass jscs.');
-  });
-});
-enifed('ember-routing-htmlbars/keywords/link-to.jshint', ['exports'], function (exports) {
-  'use strict';
-
-  QUnit.module('JSHint - ember-routing-htmlbars/keywords');
-  QUnit.test('ember-routing-htmlbars/keywords/link-to.js should pass jshint', function (assert) {
-    assert.ok(true, 'ember-routing-htmlbars/keywords/link-to.js should pass jshint.');
-  });
-});
 enifed('ember-routing-htmlbars/keywords/render.jscs-test', ['exports'], function (exports) {
   'use strict';
 
@@ -31354,7 +31326,7 @@ enifed('ember-routing-htmlbars/tests/helpers/element_action_test.jshint', ['expo
     assert.ok(true, 'ember-routing-htmlbars/tests/helpers/element_action_test.js should pass jshint.');
   });
 });
-enifed('ember-routing-htmlbars/tests/helpers/link-to_test', ['exports', 'ember-routing-htmlbars', 'ember-metal/run_loop', 'ember-views/views/view', 'ember-template-compiler/system/compile', 'ember-metal/property_set', 'ember-runtime/controllers/controller', 'ember-runtime/system/container', 'ember-runtime/tests/utils', 'ember-runtime/system/object', 'ember-views/component_lookup', 'ember-routing-views/views/link'], function (exports, _emberRoutingHtmlbars, _emberMetalRun_loop, _emberViewsViewsView, _emberTemplateCompilerSystemCompile, _emberMetalProperty_set, _emberRuntimeControllersController, _emberRuntimeSystemContainer, _emberRuntimeTestsUtils, _emberRuntimeSystemObject, _emberViewsComponent_lookup, _emberRoutingViewsViewsLink) {
+enifed('ember-routing-htmlbars/tests/helpers/link-to_test', ['exports', 'ember-routing-htmlbars', 'ember-metal/run_loop', 'ember-views/views/view', 'ember-template-compiler/system/compile', 'ember-metal/property_set', 'ember-runtime/controllers/controller', 'ember-runtime/system/container', 'ember-runtime/tests/utils', 'ember-runtime/system/object', 'ember-views/component_lookup', 'ember-routing-views/components/link-to'], function (exports, _emberRoutingHtmlbars, _emberMetalRun_loop, _emberViewsViewsView, _emberTemplateCompilerSystemCompile, _emberMetalProperty_set, _emberRuntimeControllersController, _emberRuntimeSystemContainer, _emberRuntimeTestsUtils, _emberRuntimeSystemObject, _emberViewsComponent_lookup, _emberRoutingViewsComponentsLinkTo) {
   'use strict';
 
   var view;
@@ -31383,7 +31355,8 @@ enifed('ember-routing-htmlbars/tests/helpers/link-to_test', ['exports', 'ember-r
   }));
 
   registry.register('component-lookup:main', _emberViewsComponent_lookup.default);
-  registry.register('component:-link-to', _emberRoutingViewsViewsLink.default);
+  registry.register('component:link-to', _emberRoutingViewsComponentsLinkTo.default);
+  registry.register('component:custom-link-to', _emberRoutingViewsComponentsLinkTo.default.extend());
 
   QUnit.module('ember-routing-htmlbars: link-to helper', {
     setup: function () {
@@ -31498,6 +31471,18 @@ enifed('ember-routing-htmlbars/tests/helpers/link-to_test', ['exports', 'ember-r
     }, /Providing `{{link-to}}` with a param that is wrapped in a controller is deprecated./);
 
     equal(view.$().text(), 'Text');
+  });
+
+  QUnit.test('able to safely extend the built-in component and use the normal path', function () {
+    view = _emberViewsViewsView.default.create({
+      title: 'my custom link-to component',
+      template: _emberTemplateCompilerSystemCompile.default('{{custom-link-to view.title}}'),
+      container: container
+    });
+
+    _emberRuntimeTestsUtils.runAppend(view);
+
+    equal(view.$().text(), 'my custom link-to component', 'rendered a custom-link-to component');
   });
 });
 enifed('ember-routing-htmlbars/tests/helpers/link-to_test.jscs-test', ['exports'], function (exports) {
@@ -32461,6 +32446,22 @@ enifed('ember-routing-views.jshint', ['exports'], function (exports) {
     assert.ok(true, 'ember-routing-views.js should pass jshint.');
   });
 });
+enifed('ember-routing-views/components/link-to.jscs-test', ['exports'], function (exports) {
+  'use strict';
+
+  module('JSCS - ember-routing-views/components');
+  test('ember-routing-views/components/link-to.js should pass jscs', function () {
+    ok(true, 'ember-routing-views/components/link-to.js should pass jscs.');
+  });
+});
+enifed('ember-routing-views/components/link-to.jshint', ['exports'], function (exports) {
+  'use strict';
+
+  QUnit.module('JSHint - ember-routing-views/components');
+  QUnit.test('ember-routing-views/components/link-to.js should pass jshint', function (assert) {
+    assert.ok(true, 'ember-routing-views/components/link-to.js should pass jshint.');
+  });
+});
 enifed('ember-routing-views/tests/main_test', ['exports', 'ember-routing-views'], function (exports, _emberRoutingViews) {
   'use strict';
 
@@ -32491,22 +32492,6 @@ enifed('ember-routing-views/tests/main_test.jshint', ['exports'], function (expo
   QUnit.module('JSHint - ember-routing-views/tests');
   QUnit.test('ember-routing-views/tests/main_test.js should pass jshint', function (assert) {
     assert.ok(true, 'ember-routing-views/tests/main_test.js should pass jshint.');
-  });
-});
-enifed('ember-routing-views/views/link.jscs-test', ['exports'], function (exports) {
-  'use strict';
-
-  module('JSCS - ember-routing-views/views');
-  test('ember-routing-views/views/link.js should pass jscs', function () {
-    ok(true, 'ember-routing-views/views/link.js should pass jscs.');
-  });
-});
-enifed('ember-routing-views/views/link.jshint', ['exports'], function (exports) {
-  'use strict';
-
-  QUnit.module('JSHint - ember-routing-views/views');
-  QUnit.test('ember-routing-views/views/link.js should pass jshint', function (assert) {
-    assert.ok(true, 'ember-routing-views/views/link.js should pass jshint.');
   });
 });
 enifed('ember-routing-views/views/outlet.jscs-test', ['exports'], function (exports) {
@@ -34178,6 +34163,39 @@ enifed('ember-routing/tests/system/route_test', ['exports', 'ember-runtime/tests
     expectDeprecation(function () {
       route._actions.foo();
     }, 'Usage of `_actions` is deprecated, use `actions` instead.');
+  });
+
+  QUnit.test('actions in both `_actions` and `actions` results in an assertion', function () {
+    expectAssertion(function () {
+      _emberRoutingSystemRoute.default.extend({
+        _actions: {},
+        actions: {}
+      }).create();
+    }, 'Specifying `_actions` and `actions` in the same mixin is not supported.');
+  });
+
+  QUnit.test('actions added via `_actions` can be used [DEPRECATED]', function () {
+    expect(3);
+
+    var route = undefined;
+    expectDeprecation(function () {
+      route = _emberRoutingSystemRoute.default.extend({
+        _actions: {
+          bar: function () {
+            ok(true, 'called bar action');
+          }
+        }
+      }, {
+        actions: {
+          foo: function () {
+            ok(true, 'called foo action');
+          }
+        }
+      }).create();
+    }, 'Specifying actions in `_actions` is deprecated, please use `actions` instead.');
+
+    route.send('foo');
+    route.send('bar');
   });
 
   QUnit.module('Ember.Route serialize', {
@@ -36875,6 +36893,17 @@ enifed('ember-runtime/tests/computed/reduce_computed_macros_test', ['exports', '
   });
   QUnit.test('sums the values in the dependentKey', function () {
     equal(obj.get('total'), 6, 'sums the values');
+  });
+
+  QUnit.test('if the dependentKey is neither an array nor object, it will return `0`', function () {
+    _emberMetalProperty_set.set(obj, 'array', null);
+    equal(_emberMetalProperty_get.get(obj, 'total'), 0, 'returns 0');
+
+    _emberMetalProperty_set.set(obj, 'array', undefined);
+    equal(_emberMetalProperty_get.get(obj, 'total'), 0, 'returns 0');
+
+    _emberMetalProperty_set.set(obj, 'array', 'not an array');
+    equal(_emberMetalProperty_get.get(obj, 'total'), 0, 'returns 0');
   });
 
   QUnit.test('updates when array is modified', function () {
@@ -49733,7 +49762,7 @@ enifed('ember-template-compiler/tests/system/compile_test', ['exports', 'ember-t
 
     var actual = _emberTemplateCompilerSystemCompile.default(templateString);
 
-    equal(actual.meta.revision, 'Ember@2.2.0-canary+6fdbd096', 'revision is included in generated template');
+    equal(actual.meta.revision, 'Ember@2.2.0-canary+72652707', 'revision is included in generated template');
   });
 
   QUnit.test('the template revision is different than the HTMLBars default revision', function () {
@@ -58857,6 +58886,53 @@ enifed('ember-views/tests/views/view/create_element_test.jshint', ['exports'], f
     assert.ok(true, 'ember-views/tests/views/view/create_element_test.js should pass jshint.');
   });
 });
+enifed('ember-views/tests/views/view/current_state_deprecation_test', ['exports', 'ember-views/views/view', 'ember-metal/run_loop'], function (exports, _emberViewsViewsView, _emberMetalRun_loop) {
+  'use strict';
+
+  var view;
+
+  QUnit.module('views/view/current_state_deprecation', {
+    setup: function () {
+      view = _emberViewsViewsView.default.create();
+    },
+    teardown: function () {
+      _emberMetalRun_loop.default(view, 'destroy');
+    }
+  });
+
+  QUnit.test('deprecates when calling currentState', function () {
+    expect(2);
+
+    view = _emberViewsViewsView.default.create();
+
+    expectDeprecation(function () {
+      equal(view.currentState, view._currentState);
+    }, 'Usage of `currentState` is deprecated, use `_currentState` instead.');
+  });
+
+  QUnit.test('doesn\'t deprecate when calling _currentState', function () {
+    expect(1);
+
+    view = _emberViewsViewsView.default.create();
+    ok(view._currentState, '_currentState can be used without deprecation');
+  });
+});
+enifed('ember-views/tests/views/view/current_state_deprecation_test.jscs-test', ['exports'], function (exports) {
+  'use strict';
+
+  module('JSCS - ember-views/tests/views/view');
+  test('ember-views/tests/views/view/current_state_deprecation_test.js should pass jscs', function () {
+    ok(true, 'ember-views/tests/views/view/current_state_deprecation_test.js should pass jscs.');
+  });
+});
+enifed('ember-views/tests/views/view/current_state_deprecation_test.jshint', ['exports'], function (exports) {
+  'use strict';
+
+  QUnit.module('JSHint - ember-views/tests/views/view');
+  QUnit.test('ember-views/tests/views/view/current_state_deprecation_test.js should pass jshint', function (assert) {
+    assert.ok(true, 'ember-views/tests/views/view/current_state_deprecation_test.js should pass jshint.');
+  });
+});
 enifed('ember-views/tests/views/view/destroy_element_test', ['exports', 'ember-metal/property_get', 'ember-metal/run_loop', 'ember-views/views/view', 'ember-views/views/container_view', 'ember-htmlbars/tests/utils', 'ember-htmlbars/keywords/view'], function (exports, _emberMetalProperty_get, _emberMetalRun_loop, _emberViewsViewsView, _emberViewsViewsContainer_view, _emberHtmlbarsTestsUtils, _emberHtmlbarsKeywordsView) {
   'use strict';
 
@@ -60332,7 +60408,7 @@ enifed('ember-views/tests/views/view/replace_in_test', ['exports', 'ember-metal/
       view.replaceIn('#menu');
     });
 
-    equal(view.currentState, view._states.inDOM, 'the view is in the inDOM state');
+    equal(view._currentState, view._states.inDOM, 'the view is in the inDOM state');
   });
 
   QUnit.module('EmberView - replaceIn() in a view hierarchy', {
@@ -60945,7 +61021,7 @@ enifed('ember-views/tests/views/view/view_lifecycle_test', ['exports', 'ember-me
       view.rerender();
     });
 
-    equal(view.currentState, view._states.inDOM, 'the view is still in the inDOM state');
+    equal(view._currentState, view._states.inDOM, 'the view is still in the inDOM state');
 
     _emberMetalRun_loop.default(function () {
       view.destroy();
